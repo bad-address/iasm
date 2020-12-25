@@ -18,6 +18,9 @@ long_description = __doc__
 required_deps=[
     'keystone-engine',
     'unicorn',
+    'prompt_toolkit',
+    'Pygments',
+    'tabulate',
     ]
 
 setup(
@@ -56,7 +59,12 @@ setup(
     keywords='asm, assembler, assembly, x86, arm',
 
     packages=['iasm'],
-    data_files=[("", ["LICENSE"])]
+    data_files=[("", ["LICENSE"])],
     #package_data={'selectq':["gadgets/*"]}
+    entry_points={
+        'console_scripts': [
+            'iasm = iasm.iasm:main',
+            ],
+        }
 )
 

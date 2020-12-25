@@ -1,0 +1,4 @@
+*.pyc
+.*.swp
+dist/
+iasm.egg-info/

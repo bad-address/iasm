@@ -1,6 +1,6 @@
 '''Interactive Assembler'''
 
-__version__ = "0.0.1"
+__version__ = "0.0.5"
 
 _author = 'Di Paola Martin'
 _license = 'GNU GPLv3'
@@ -23,6 +23,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
 try:
-    pass
+    from .iasm import main
 except SystemError:
     pass  # this happens when importing from setup.py

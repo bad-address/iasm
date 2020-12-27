@@ -43,22 +43,26 @@ from pygments.styles import get_style_by_name
 from prompt_toolkit.styles.pygments import style_from_pygments_cls
 
 from tabulate import tabulate
+import copy
 
 
 def py_shell(cmd, regs, mem, mu):
-    reg_values = {r.name: r.val for r in regs}
-    reg_values['U'] = mu
-    reg_values['M'] = mem
+    current_ctx = {r.name: r.val for r in regs}
+    current_ctx['U'] = mu
+    current_ctx['M'] = mem
+
+    new_ctx = copy.copy(current_ctx)  # shallow copy
     try:
         try:
             # let's see if we can eval it as an expression
-            ret = eval(cmd, None, reg_values)
+            ret = eval(cmd, None, new_ctx)
         except SyntaxError:
             # probably it is not an expression, let's try
             # now as a full statement
-            exec(cmd, None, reg_values)
+            exec(cmd, None, new_ctx)
             for reg in regs:
-                reg.val = reg_values[reg.name]
+                if new_ctx[reg.name] != current_ctx[reg.name]:
+                    reg.val = new_ctx[reg.name]
         else:
             if isinstance(ret, Bytearray):
                 ret = repr(ret)

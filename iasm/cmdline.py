@@ -75,6 +75,16 @@ def build_argparser():
     )
 
     parser.add_argument(
+        "-i",
+        "--init",
+        metavar='<file>',
+        dest='init_file',
+        required=False,
+        help=
+        'execute the instructions from the given file before starting the interactive session.'
+    )
+
+    parser.add_argument(
         '-V',
         '--version',
         nargs=0,

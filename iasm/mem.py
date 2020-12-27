@@ -28,21 +28,21 @@ class Memory:
 
             >>> m = Memory(mu)
             >>> m._unpack_index(4)
-            (4, 5, 1)
+            (4, 5, None)
 
             Slice objects can be used as well:
 
             >>> m._unpack_index(slice(0, 8))
-            (0, 8, 1)
+            (0, 8, None)
 
             When the start or the stop of a slice object is missing,
             None is returned:
 
             >>> m._unpack_index(slice(9))
-            (None, 9, 1)
+            (None, 9, None)
 
             >>> m._unpack_index(slice(3, None))
-            (3, None, 1)
+            (3, None, None)
 
             But the start and the stop addresses cannot be both None:
 
@@ -50,14 +50,13 @@ class Memory:
             <...>
             IndexError: You need to specify at least the begin or end address.
 
-            The element size is encoded in the step attribute of the slice
-            object:
+            The step attribute of the slice is not supported:
 
             >>> m._unpack_index(slice(None, 9, 4))
-            (None, 9, 4)
+            <...>
+            TypeError: Unsupported step parameter '<class 'int'>'.
 
-            The implementation only supports for non-negative addresses and
-            positive element sizes.
+            The implementation only supports for non-negative addresses:
 
             >>> m._unpack_index(slice(-1, None))
             <...>
@@ -66,10 +65,6 @@ class Memory:
             >>> m._unpack_index(slice(1, -10))
             <...>
             IndexError: Addresses must be non-negative.
-
-            >>> m._unpack_index(slice(1, 10, -1))
-            <...>
-            ValueError: Invalid non-positive element size '-1'.
 
             And the stop address must be greather or equal than the start
             address:
@@ -106,18 +101,10 @@ class Memory:
                     % self._str_range(ix.start, ix.stop)
                 )
 
-        elem_sz = ix.step or 1
-        if not isinstance(elem_sz, int):
-            raise TypeError(
-                "Unsupported element size type '%s'." % type(elem_sz)
-            )
+        if ix.step is not None:
+            raise TypeError("Unsupported step parameter '%s'." % type(ix.step))
 
-        if elem_sz <= 0:
-            raise ValueError(
-                "Invalid non-positive element size '%s'." % elem_sz
-            )
-
-        return ix.start, ix.stop, elem_sz
+        return ix.start, ix.stop, ix.step
 
     def _find_mapped_region_that_contains(self, addr):
         ''' Find the memory region mapped that contains the given

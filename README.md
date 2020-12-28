@@ -108,7 +108,7 @@ For example to initialize the stack you can do:
 ```shell
 $ cat init
 ;! M[0x1000:0x2000] = 0
-;! sp = 0x2000-1
+;! sp = 0x2000
 
 $ iasm -a arm -m arm -i init
 Mapping memory region [0x1000000-0x11fffff] (sz 0x200000)
@@ -117,7 +117,7 @@ Mapping memory region [0x1000-0x1fff] (sz 0x1000)
     r0  0  r1      0     r2      0  r3      0
     r4  0  r5      0     r6      0  r7      0
     r8  0  r9/sb   0     r10     0  r11/fp  0
-r12/ip  0  r13/sp  1fff  r14/lr  0  r15/pc  100:0
+r12/ip  0  r13/sp  2000  r14/lr  0  r15/pc  100:0
 ------  -  ------  ----  ------  -  ------  -----
 100:0>
 ```

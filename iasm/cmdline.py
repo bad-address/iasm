@@ -85,6 +85,15 @@ def build_argparser():
     )
 
     parser.add_argument(
+        "--show-regs",
+        action='store_true',
+        dest='show_regs',
+        required=False,
+        help=
+        'show the registers available for the given architecture/mode and quit.'
+    )
+
+    parser.add_argument(
         '-V',
         '--version',
         nargs=0,

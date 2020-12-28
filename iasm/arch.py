@@ -5,13 +5,16 @@ import unicorn
 from fnmatch import fnmatch
 from itertools import groupby
 from operator import itemgetter
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 from ipaddress import IPv6Address
+from bitstring import Bits
+from functools import partial
 
 from .mem import Memory
 '''
->>> from iasm.arch import get_engines, Register
+>>> from iasm.arch import get_engines, Register, FlagRegister, _get_flag
 >>> from iasm.arch import select_registers, _make_registers_dummy
+>>> from collections import OrderedDict
 '''
 
 # Notes:
@@ -42,7 +45,35 @@ _supported_regs = {
             'r13': 'sp',
             'r14': 'lr',
             'r15': 'pc'
-        }, ["r[0-9]", "r1*"]
+        }, ["r[0-9]", "r1*", "cpsr"], {
+            'cpsr': (
+                32,
+                OrderedDict(
+                    [
+                        ('N', 31),
+                        ('Z', 30),
+                        ('C', 29),
+                        ('V', 28),
+                        ('Q', 27),
+                        ('J', 24),
+                        (1, None),
+                        ('GE', slice(16, 20)),
+                        (2, None),
+                        ('E', 9),
+                        ('A', 8),
+                        ('I', 7),
+                        ('F', 6),
+                        ('T', 5),
+                        (3, None),
+                        ('M', slice(0, 5)),
+                        (4, None),
+                        ('IT', (slice(25, 27), slice(10, 16))),
+                        (5, None),
+                        ('...........', slice(20, 24)),
+                    ]
+                )
+            )
+        }
     ),
     'arm64': (
         unicorn.arm64_const, 'UC_ARM64_REG_', set(), 'r15', {
@@ -52,15 +83,44 @@ _supported_regs = {
             'r13': 'sp',
             'r14': 'lr',
             'r15': 'pc'
-        }, ["r[0-9]", "r1*"]
+        }, ["r[0-9]", "r1*", "cpsr"], {
+            'cpsr': (
+                32,
+                OrderedDict(
+                    [
+                        ('N', 31),
+                        ('Z', 30),
+                        ('C', 29),
+                        ('V', 28),
+                        ('Q', 27),
+                        ('J', 24),
+                        (1, None),
+                        ('GE', slice(16, 20)),
+                        (2, None),
+                        ('E', 9),
+                        ('A', 8),
+                        ('I', 7),
+                        ('F', 6),
+                        ('T', 5),
+                        (3, None),
+                        ('M', slice(0, 5)),
+                        (4, None),
+                        ('IT', (slice(25, 27), slice(10, 16))),
+                        (5, None),
+                        ('...........', slice(20, 24)),
+                    ]
+                )
+            )
+        }
     ),
-    'mips': (unicorn.mips_const, 'UC_MIPS_REG_', set(), 'pc', {}, ['pc']),
-    'sparc': (unicorn.sparc_const, 'UC_SPARC_REG_', set(), 'pc', {}, ['pc']),
+    'mips': (unicorn.mips_const, 'UC_MIPS_REG_', set(), 'pc', {}, ['pc'], {}),
+    'sparc':
+    (unicorn.sparc_const, 'UC_SPARC_REG_', set(), 'pc', {}, ['pc'], {}),
     'x86': (
         unicorn.x86_const, 'UC_X86_REG_', {'MSR'}, {
             '32': 'eip',
             '64': 'rip'
-        }, {}, ["e?x", "esi", "edi", "eip"]
+        }, {}, ["e?x", "esi", "edi", "eip"], {}
     ),
 }
 
@@ -90,7 +150,9 @@ _supported_modes = {
 }
 
 
-class Register(namedtuple('P', ('mu', 'name', 'const', 'alias'))):
+class Register(
+    namedtuple('P', ('mu', 'name', 'const', 'alias', 'f_dscrs', 'sz'))
+):
     ''' A representation of a CPU register.
 
         Given a CPU emulator like Unicorn, build a representation in
@@ -98,7 +160,7 @@ class Register(namedtuple('P', ('mu', 'name', 'const', 'alias'))):
 
         >>> import unicorn
         >>> _, mu, regs, pc, mem = get_engines('x86', '32')
-        >>> reg = Register(mu, 'eax', unicorn.x86_const.UC_X86_REG_EAX, None)
+        >>> reg = Register(mu, 'eax', unicorn.x86_const.UC_X86_REG_EAX, None, None, None)
 
         >>> reg
         eax = 0
@@ -145,13 +207,13 @@ class Register(namedtuple('P', ('mu', 'name', 'const', 'alias'))):
         longest sequence is at the begin (left).
 
         For simplification this "::" is removed if it is at the begin. Also
-        while an IPv6 full of zeros is represented by a single "::" we prefered
+        while an IPv6 full of zeros is represented by a single "::" we preferred
         to use "0".
 
         Besides the name, the register can have an alias. This changes only
         how it is displayed:
 
-        >>> Register(mu, 'eax', unicorn.x86_const.UC_X86_REG_EAX, "xyz")
+        >>> Register(mu, 'eax', unicorn.x86_const.UC_X86_REG_EAX, "xyz", None, None)
         eax/xyz = 100:0
         '''
     @property
@@ -194,6 +256,96 @@ class Register(namedtuple('P', ('mu', 'name', 'const', 'alias'))):
         return hash(self) == hash(other)
 
 
+def _get_flag(reg, flag_descr, reg_sz):
+    ''' Return a Bits representation of a subset of the register <reg>.
+
+        The subset is defined by the flag descriptor assuming a register
+        of <reg_sz> size.
+
+        >>> reg = _make_registers_dummy(['cpsr'], [0b1000000000001100])[0]
+
+        An integer means a single bit:
+
+        >>> _get_flag(reg, 0, 16).bin    # LSB
+        '0'
+        >>> _get_flag(reg, 15, 16).bin    # MSB
+        '1'
+
+        A slice object means a range of bits:
+
+        >>> _get_flag(reg, slice(0, 4), 16).bin
+        '1100'
+
+        A tuple of integers and slices means a range of bits that
+        cannot be represented by a single slice because they are
+        non-contiguous.
+
+        >>> _get_flag(reg, (15, 14, slice(0, 4)), 16).bin
+        '101100'
+        '''
+    # Note: we reverse the bits at the begin and then at the end.
+    # This allows the indexing notation to put the low numbers (0)
+    # on the right to select LSB and the high number (N-1) on the left
+    # to select the MSB
+    bs = Bits(uint=reg.val, length=reg_sz)[::-1]
+    if isinstance(flag_descr, int):
+        seq = [bs[flag_descr:flag_descr + 1]]
+    elif isinstance(flag_descr, slice):
+        seq = [bs[flag_descr]]
+    else:
+        assert isinstance(flag_descr, tuple)
+        seq = [
+            (bs[d:d + 1] if isinstance(d, int) else bs[d]) for d in flag_descr
+        ]
+
+    assert isinstance(seq, list) and all(isinstance(b, Bits) for b in seq)
+    return sum(b[::-1] for b in seq)
+
+
+class FlagRegister(Register):
+    def _define_flags_description(self):
+        for name, descr in self.f_dscrs.items():
+            if descr is None:
+                continue
+
+            fget = partial(_get_flag, flag_descr=descr, reg_sz=self.sz)
+            prop = property(fget, doc='Flag %s' % name)
+            setattr(self, name, prop)
+
+    def repr_val(self):
+        bs = []
+        names = []
+        for name, descr in self.f_dscrs.items():
+            if descr is None:
+                bs.append(' ')
+                names.append(' ')
+                continue
+
+            b = _get_flag(self, flag_descr=descr, reg_sz=self.sz)
+            bs.append(b)
+
+            name = name[:len(b.bin)]
+            if len(name) < len(b):
+                name += " " * (len(b) - len(name))
+            names.append(name)
+
+        up = ''.join(b if b == ' ' else b.bin for b in bs)
+        down = ''.join(names)
+
+        return up + '\n' + down
+
+    def __repr__(self):
+        ''' Representation of flags
+
+            >>> f_dscrs = OrderedDict([('N', 31), ('Z', 30), (1, None), ('M', slice(0, 5, None))])
+            >>> FlagRegister(mu, 'eax', unicorn.x86_const.UC_X86_REG_EAX, None, f_dscrs, 32)
+            eax =
+            00 00000
+            NZ M
+            '''
+        return "%s =\n%s" % (self.display_name(), self.repr_val())
+
+
 class _RegisterDummy(Register):
     @property
     def val(self):
@@ -205,7 +357,7 @@ class _RegisterDummy(Register):
 
 
 def _make_registers_dummy(names, values=None):
-    regs = [_RegisterDummy(None, n, None, None) for n in names]
+    regs = [_RegisterDummy(None, n, None, None, None, None) for n in names]
     if values:
         for r, v in zip(regs, values):
             r.val = v
@@ -217,9 +369,10 @@ def _make_registers_dummy(names, values=None):
 
 
 def get_registers(mu, arch_name, mode_name):
-    mod, regprefix, ignore, pc, aliasses, _ = _supported_regs[arch_name]
-    if isinstance(pc, dict):
-        pc = pc[mode_name]
+    mod, regprefix, ignore, pc_name, aliasses, _, f_regs = _supported_regs[
+        arch_name]
+    if isinstance(pc_name, dict):
+        pc_name = pc_name[mode_name]
 
     const_names = [n for n in dir(mod) if n.startswith(regprefix)]
     const_names.sort()
@@ -227,12 +380,27 @@ def get_registers(mu, arch_name, mode_name):
     regnames = [n.replace(regprefix, '') for n in const_names]
     consts = [getattr(mod, n) for n in const_names]
 
-    regs = [
-        Register(mu, name.lower(), const, aliasses.get(name.lower(), None))
-        for name, const in zip(regnames, consts) if name not in ignore
-    ]
+    regs = []
+    pc = None
+    for name, const in zip(regnames, consts):
+        name = name.lower()
+        if name in ignore:
+            continue
 
-    return regs, next((r for r in regs if r.name == pc), None)
+        alias = aliasses.get(name, None)
+        if name in f_regs:
+            reg_sz, f_dscrs = f_regs[name]
+            reg = FlagRegister(mu, name, const, alias, f_dscrs, reg_sz)
+            reg._define_flags_description()
+        else:
+            reg = Register(mu, name, const, alias, None, None)
+
+        if name == pc_name:
+            pc = reg
+
+        regs.append(reg)
+
+    return regs, pc
 
 
 def select_registers(regs, globs):

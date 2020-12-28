@@ -5,6 +5,8 @@ from .cmdline import build_argparser
 from keystone import KsError
 from unicorn import UcError
 
+import sys
+
 
 def main():
     parser = build_argparser()
@@ -18,9 +20,13 @@ def main():
     # Initialize engines
     ks, mu, regs, pc, mem = get_engines(args.arch, args.mode)
 
+    if args.show_regs:
+        display_registers(regs, columns=5)
+        sys.exit(0)
+
     reg_globs = args.reg_globs
     if not reg_globs:
-        reg_globs = _supported_regs[args.arch][-1]
+        reg_globs = _supported_regs[args.arch][-2]
 
     visible_regs = list(select_registers(regs, reg_globs))
 

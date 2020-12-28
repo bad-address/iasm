@@ -8,6 +8,7 @@ from pygments.lexer import DelegatingLexer, do_insertions
 from pygments.token import Comment
 
 from .mem import Bytearray
+from .arch import FlagRegister
 
 COMMENT_SYM = ";"
 PY_EXEC_SYM = ";!"
@@ -85,8 +86,20 @@ def create_shell_session(style):
 
 
 def display_registers(regs, columns):
-    n = 4
-    tmp = [(r.display_name(), r.repr_val()) for r in regs]
+    n = columns
+    tmp = [
+        (r.display_name(), r.repr_val()) for r in regs
+        if not isinstance(r, FlagRegister)
+    ]
+    tmp = [sum(tmp[i:i + n], ()) for i in range(0, len(tmp), n)]
+
+    print(tabulate(tmp, colalign=("right", "left"), disable_numparse=True))
+
+    n = columns = 1
+    tmp = [
+        (r.display_name(), r.repr_val()) for r in regs
+        if isinstance(r, FlagRegister)
+    ]
     tmp = [sum(tmp[i:i + n], ()) for i in range(0, len(tmp), n)]
 
     print(tabulate(tmp, colalign=("right", "left"), disable_numparse=True))

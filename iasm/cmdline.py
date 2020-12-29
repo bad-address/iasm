@@ -94,6 +94,15 @@ def build_argparser():
     )
 
     parser.add_argument(
+        "--timeout",
+        metavar='<secs>',
+        dest='timeout',
+        required=False,
+        default=5,
+        help='timeout for parsing and executing each assembly instruction.'
+    )
+
+    parser.add_argument(
         '-V',
         '--version',
         nargs=0,

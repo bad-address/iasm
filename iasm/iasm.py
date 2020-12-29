@@ -6,11 +6,14 @@ from keystone import KsError
 from unicorn import UcError
 
 import sys
+import threading
 
 
 def main():
     parser = build_argparser()
     args = parser.parse_args()
+
+    args.timeout = max(int(args.timeout), 1)
 
     init_inputs = []
     if args.init_file:
@@ -56,9 +59,26 @@ def main():
             code, comment = code_comment
 
             try:
-                instrs, _ = ks.asm(code, as_bytes=True)
+                ret = []
+
+                def parse_assembly():
+                    ret.extend(ks.asm(code, as_bytes=True))
+
+                th = threading.Thread(target=parse_assembly, daemon=True)
+                th.start()
+                th.join(args.timeout)
+
+                if not ret:
+                    raise TimeoutError()
+
+                instrs, _ = ret
                 if not instrs:
                     continue
+            except TimeoutError as e:
+                print(
+                    "Parse assebly timedout (possible Keystone bug/syntax error). Aborting."
+                )
+                sys.exit(1)
             except KsError as e:
                 print("Syntax error: %s" % e)
                 continue
@@ -72,7 +92,11 @@ def main():
 
             try:
                 # emulate code in infinite time & unlimited instructions
-                mu.emu_start(pc_addr, pc_addr + len(instrs))
+                mu.emu_start(
+                    pc_addr,
+                    pc_addr + len(instrs),
+                    timeout=args.timeout * 1000
+                )
             except UcError as e:
                 print("Execution error: %s" % e)
                 continue

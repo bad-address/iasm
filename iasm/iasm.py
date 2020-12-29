@@ -59,19 +59,32 @@ def main():
             code, comment = code_comment
 
             try:
-                ret = []
+                ret = []  # ret == [instrs, None] or [None, error]
 
                 def parse_assembly():
-                    ret.extend(ks.asm(code, as_bytes=True))
+                    err = None
+                    try:
+                        instrs, _ = ks.asm(code, as_bytes=True)
+                    except Exception as e:
+                        instrs, err = None, e
+
+                    ret.extend((instrs, err))
 
                 th = threading.Thread(target=parse_assembly, daemon=True)
                 th.start()
                 th.join(args.timeout)
 
-                if not ret:
+                # keystone hang?
+                if not ret or th.isAlive():
                     raise TimeoutError()
 
-                instrs, _ = ret
+                instrs, err = ret
+
+                # keystone failed?
+                if err is not None:
+                    raise err
+
+                # valid assembly but not instructions there (like a comment)
                 if not instrs:
                     continue
             except TimeoutError as e:

@@ -1,4 +1,5 @@
 from prompt_toolkit import PromptSession
+from prompt_toolkit.history import FileHistory
 
 from pygments.lexers.asm import NasmLexer
 from pygments.lexers.python import Python3Lexer
@@ -10,9 +11,12 @@ from pygments.token import Comment
 from .mem import Bytearray
 from .arch import FlagRegister
 
+import os.path
+
 COMMENT_SYM = ";"
 PY_EXEC_SYM = ";!"
 
+HISTORY_FILEPATH = "~/.iasm_history"
 
 # Hacked version of DelegatingLexer that switch from one Lexer (NasmLexer)
 # to another (Python3Lexer) when a Comment is found at the begin of
@@ -76,10 +80,14 @@ def py_shell(cmd, regs, mem, mu):
 def create_shell_session(style):
     style = style_from_pygments_cls(get_style_by_name(style))
 
+    history_path = os.path.expanduser(HISTORY_FILEPATH)
+    history = FileHistory(history_path)
+
     session = PromptSession(
         lexer=PygmentsLexer(NasmPythonLexer),
         style=style,
-        include_default_pygments_style=False
+        include_default_pygments_style=False,
+        history=history
     )
 
     return session

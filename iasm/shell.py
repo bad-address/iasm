@@ -1,5 +1,6 @@
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
+from prompt_toolkit.key_binding import KeyBindings
 
 from pygments.lexers.asm import NasmLexer
 from pygments.lexers.python import Python3Lexer
@@ -17,6 +18,7 @@ COMMENT_SYM = ";"
 PY_EXEC_SYM = ";!"
 
 HISTORY_FILEPATH = "~/.iasm_history"
+
 
 # Hacked version of DelegatingLexer that switch from one Lexer (NasmLexer)
 # to another (Python3Lexer) when a Comment is found at the begin of
@@ -83,11 +85,136 @@ def create_shell_session(style):
     history_path = os.path.expanduser(HISTORY_FILEPATH)
     history = FileHistory(history_path)
 
+    kb = KeyBindings()
+
+    #   >         X    X    (white line)
+    #    ^^^^^^^  ^    ^
+    #  indent     |    |
+    #           enter enter
+    #             \    \
+    #             finish (single line)
+
+    #   > mov r0X, r1X
+    #    ^      ^    ^
+    # no indent |    |
+    #         enter enter
+    #           \    \
+    #           finish (single line)
+
+    #   >   mov r0X, r1X
+    #    ^^^      ^    ^
+    #  indent     |    |
+    #           enter enter
+    #             |    \
+    #           insert  insert
+    #             continue (new block/multiline)
+
+    #   >   mov r0X, r1
+    #   :   mov r2^, r3X
+    #    ^^^      |    ^
+    #  indent     |    |
+    #           enter enter
+    #             |    \
+    #           insert  insert
+    #             continue (already block/multiline)
+
+    #   >   mov r0X, r1
+    #   :         ^    X    (white line)
+    #    ^^^^^^^  |    ^
+    #  indent     |    |
+    #           enter enter --> finish
+    #             |
+    #           insert
+    #             continue (already block/multiline)
+
+    #   >   mov r0X, r1
+    #   : mov r2, ^  r3X
+    #    ^        |    ^
+    #  no indent  |    |
+    #           enter enter --> finish
+    #             |
+    #           insert
+    #             continue (already block/multiline)
+
+    @kb.add('enter')
+    def _(event):
+        buf = event.current_buffer
+        last_line = buf.text.split("\n")[-1]
+
+        is_indented = last_line.startswith(" ")
+        is_last_empty = len(last_line.lstrip()) == 0
+        is_multiline = '\n' in buf.text
+        is_at_end = buf.cursor_position == len(buf.text)
+
+        finish = None
+        # unrolled logic:
+        #   if is_last_empty and not is_multiline and is_indented:
+        #       finish = True
+        #
+        #   elif is_last_empty and not is_multiline and not is_indented:
+        #       finish = True
+        #
+        #   elif not is_last_empty and not is_multiline and not is_indented:
+        #       finish = True
+        #
+        #   elif not is_last_empty and not is_multiline and is_indented:
+        #       finish = False
+        #
+        #   elif not is_last_empty and is_multiline and is_indented:
+        #       finish = False
+        #
+        #   elif is_last_empty and is_multiline and is_indented:
+        #       if is_at_end:
+        #           finish = True
+        #       else
+        #           finish = False
+        #
+        #   elif not is_last_empty and is_multiline and not is_indented:
+        #       if is_at_end:
+        #           finish = True
+        #       else
+        #           finish = False
+        #
+        #   elif is_last_empty and is_multiline and not is_indented:
+        #       if is_at_end:
+        #           finish = True
+        #       else
+        #           finish = False
+        #   else:
+        #       assert False
+        ####
+
+        if is_multiline:
+            if not is_last_empty and is_indented:
+                finish = False
+            else:
+                finish = is_at_end == True
+        else:
+            if not is_last_empty and is_indented:
+                finish = False
+            else:
+                finish = True
+
+        assert finish in (True, False)
+        if finish:
+            buf.validate_and_handle()
+        else:
+            # TODO this should be the line within the cursor,
+            # not necessary the last
+            indentation = len(last_line) - len(last_line.lstrip())
+            buf.insert_text('\n' + ' ' * indentation)
+
+    def prompt_continuation(width, line_number, wrap_count):
+        return " " * (width - 3) + "-> "
+
     session = PromptSession(
         lexer=PygmentsLexer(NasmPythonLexer),
         style=style,
         include_default_pygments_style=False,
-        history=history
+        history=history,
+        key_bindings=kb,
+        multiline=True,
+        prompt_continuation=prompt_continuation
     )
 
     return session

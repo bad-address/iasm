@@ -2,6 +2,8 @@ from . import __version__, __doc__, _author, _license, _url, _license_disclaimer
 from .arch import _supported_archs, _supported_modes
 import argparse
 import sys
+import unicorn
+import keystone
 
 from pygments.styles import get_all_styles
 
@@ -19,6 +21,9 @@ class _Print(argparse.Action):
 
 def build_argparser():
     python_version = sys.version.split(' ', 1)[0]
+    keystone_version = '.'.join(str(i) for i in keystone.version_bind())
+    unicorn_version = '.'.join(str(i) for i in unicorn.version_bind())
+
     parser = argparse.ArgumentParser(
         fromfile_prefix_chars='@', description=__doc__
     )
@@ -107,12 +112,14 @@ def build_argparser():
         '--version',
         nargs=0,
         action=_Print,
-        message='{prog} {version} (Python {python_version}) - {license}\n\n{doc}'
+        message='{prog} {version} (Python {python_version}, Keystone {keystone_version}, Unicorn {unicorn_version}) - {license}\n\n{doc}'
         '\n\n{license_disclaimer}'.format(
             prog=parser.prog,
             doc=__doc__,
             version=__version__,
             python_version=python_version,
+            keystone_version=keystone_version,
+            unicorn_version=unicorn_version,
             license=_license,
             license_disclaimer=_license_disclaimer.format(
                 author=_author, url=_url

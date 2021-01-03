@@ -7,15 +7,18 @@ import pygments
 
 from textwrap import TextWrapper
 import json
+import os
+
+DS_DIR = os.path.join(os.path.dirname(__file__), 'datasheets')
 
 _supported_docs = {
     'arm': {
-        'v8': "datasheet/armv8.json",
-        'latest': "datasheet/armv8.json"
+        'v8': os.path.join(DS_DIR, "armv8.json"),
+        'latest': os.path.join(DS_DIR, "armv8.json")
     },
     'arm64': {
-        'v8': "datasheet/armv8.json",
-        'latest': "datasheet/armv8.json"
+        'v8': os.path.join(DS_DIR, "armv8.json"),
+        'latest': os.path.join(DS_DIR, "armv8.json")
     },
     'mips': None,
     'sparc': None,

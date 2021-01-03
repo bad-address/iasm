@@ -61,7 +61,7 @@ setup(
 
     packages=['iasm'],
     data_files=[("", ["LICENSE"])],
-    #package_data={'selectq':["gadgets/*"]}
+    package_data={'iasm':["datasheets/*"]},
     entry_points={
         'console_scripts': [
             'iasm = iasm.iasm:main',

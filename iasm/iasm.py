@@ -1,5 +1,6 @@
 from .arch import get_engines, _supported_regs, select_registers
-from .shell import create_shell_session, display_registers, process_command_or_return_code
+from .shell import Shell
+from .doc import Documentation
 from .cmdline import build_argparser
 
 from keystone import KsError
@@ -23,18 +24,24 @@ def main():
     # Initialize engines
     ks, mu, regs, pc, mem = get_engines(args.arch, args.mode)
 
+    # Create prompt/shell object.
+    doc = None
+    session = Shell(args.style, regs, pc, mem, mu, 4, doc)
+
+    # Show regs and exit if requested
     if args.show_regs:
-        display_registers(regs, columns=5)
+        session.display_registers(columns=5)
         sys.exit(0)
+
+    # Load the documentation
+    doc = Documentation(args.arch, args.isa_version)
+    session.doc = doc
 
     reg_globs = args.reg_globs
     if not reg_globs:
         reg_globs = _supported_regs[args.arch][-2]
 
     visible_regs = list(select_registers(regs, reg_globs))
-
-    # Create prompt object.
-    session = create_shell_session(args.style)
 
     # memory address where emulation starts
     ADDRESS = 0x1000000
@@ -50,10 +57,10 @@ def main():
             if init_inputs:
                 text = init_inputs.pop(0)
             else:
-                display_registers(visible_regs, columns=4)
-                text = session.prompt('%s> ' % pc.repr_val())
+                session.display_registers(visible_regs)
+                text = session.prompt()
 
-            code_comment = process_command_or_return_code(text, regs, mem, mu)
+            code_comment = session.process_command_or_return_code(text)
             if code_comment is None:
                 continue
             code, comment = code_comment

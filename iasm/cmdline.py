@@ -108,11 +108,21 @@ def build_argparser():
     )
 
     parser.add_argument(
+        "-v",
+        metavar='<version>',
+        dest='isa_version',
+        required=False,
+        default='latest',
+        help='version of the ISA.'
+    )
+
+    parser.add_argument(
         '-V',
         '--version',
         nargs=0,
         action=_Print,
-        message='{prog} {version} (Python {python_version}, Keystone {keystone_version}, Unicorn {unicorn_version}) - {license}\n\n{doc}'
+        message=
+        '{prog} {version} (Python {python_version}, Keystone {keystone_version}, Unicorn {unicorn_version}) - {license}\n\n{doc}'
         '\n\n{license_disclaimer}'.format(
             prog=parser.prog,
             doc=__doc__,

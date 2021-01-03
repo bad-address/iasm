@@ -21,6 +21,7 @@ required_deps=[
     'prompt_toolkit',
     'Pygments',
     'tabulate',
+    'pypager',
     ]
 
 setup(

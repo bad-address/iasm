@@ -22,6 +22,7 @@ required_deps=[
     'Pygments',
     'tabulate',
     'pypager',
+    'appdirs',
     ]
 
 setup(

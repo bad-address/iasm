@@ -19,14 +19,16 @@ from .mem import Bytearray
 from .arch import FlagRegister
 
 from pydoc import pipepager
+from appdirs import AppDirs
 
 import os.path
+import os
 
 COMMENT_SYM = ";"
 PY_EXEC_SYM = ";!"
 DOC_SYM = " ?"
 
-HISTORY_FILEPATH = "~/.iasm_history"
+HISTORY_FILEPATH = "history"
 
 
 # Hacked version of DelegatingLexer that switch from one Lexer (NasmLexer)
@@ -64,6 +66,7 @@ import copy
 
 class Shell:
     def __init__(self, style, regs, pc, mem, mu, columns, doc):
+        self.dirs = AppDirs("iasm", "badaddr")
         self.session = self._create_shell_session(style)
 
         self.regs = regs
@@ -109,7 +112,10 @@ class Shell:
     def _create_shell_session(self, style):
         self.style = style = style_from_pygments_cls(get_style_by_name(style))
 
-        history_path = os.path.expanduser(HISTORY_FILEPATH)
+        user_dir = self.dirs.user_data_dir
+        os.makedirs(user_dir, exist_ok=True)
+
+        history_path = os.path.join(user_dir, HISTORY_FILEPATH)
         history = FileHistory(history_path)
 
         kb = KeyBindings()

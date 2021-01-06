@@ -260,7 +260,12 @@ class Shell:
         ]
         tmp = [sum(tmp[i:i + n], ()) for i in range(0, len(tmp), n)]
 
-        print(tabulate(tmp, colalign=("right", "left"), disable_numparse=True))
+        if tmp:
+            print(
+                tabulate(
+                    tmp, colalign=("right", "left"), disable_numparse=True
+                )
+            )
 
         n = columns = 1
         tmp = [
@@ -269,7 +274,12 @@ class Shell:
         ]
         tmp = [sum(tmp[i:i + n], ()) for i in range(0, len(tmp), n)]
 
-        print(tabulate(tmp, colalign=("right", "left"), disable_numparse=True))
+        if tmp:
+            print(
+                tabulate(
+                    tmp, colalign=("right", "left"), disable_numparse=True
+                )
+            )
 
     def show_doc(self, cmd):
         if not self.doc.enabled():

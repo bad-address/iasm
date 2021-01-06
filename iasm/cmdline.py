@@ -59,6 +59,15 @@ def build_argparser():
     )
 
     parser.add_argument(
+        "--program-counter",
+        metavar='<pc>',
+        dest='pc_addr',
+        required=False,
+        default=0x1000000,
+        help='starting program counter address.'
+    )
+
+    parser.add_argument(
         "--style",
         metavar='<style>',
         dest='style',

@@ -43,15 +43,11 @@ def main():
 
     visible_regs = list(select_registers(regs, reg_globs))
 
-    # memory address where emulation starts
-    ADDRESS = 0x1000000
-
-    # map 2MB memory for this emulation
-    mem[ADDRESS:ADDRESS + args.code_sz] = 0
-
     # TODO what is the meaning of a loop?
-    pc.val = ADDRESS
-    pc_addr = ADDRESS
+    pc.val = pc_addr = args.pc_addr
+
+    # map code segment
+    mem[pc_addr:pc_addr + args.code_sz] = 0
     while True:
         try:
             if init_inputs:

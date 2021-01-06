@@ -26,16 +26,16 @@ def main():
 
     # Create prompt/shell object.
     doc = None
-    session = Shell(args.style, regs, pc, mem, mu, 4, doc)
+    sh = Shell(args.style, regs, pc, mem, mu, 4, doc)
 
     # Show regs and exit if requested
     if args.show_regs:
-        session.display_registers(columns=5)
+        sh.display_registers(columns=5)
         sys.exit(0)
 
     # Load the documentation
     doc = Documentation(args.arch, args.isa_version)
-    session.doc = doc
+    sh.doc = doc
 
     reg_globs = args.reg_globs
     if not reg_globs:
@@ -57,10 +57,10 @@ def main():
             if init_inputs:
                 text = init_inputs.pop(0)
             else:
-                session.display_registers(visible_regs)
-                text = session.prompt()
+                sh.display_registers(visible_regs)
+                text = sh.prompt()
 
-            code_comment = session.process_command_or_return_code(text)
+            code_comment = sh.process_command_or_return_code(text)
             if code_comment is None:
                 continue
             code, comment = code_comment
@@ -95,19 +95,19 @@ def main():
                 if not instrs:
                     continue
             except TimeoutError as e:
-                print(
-                    "Parse assebly timedout (possible Keystone bug/syntax error). Aborting."
+                sh.print(
+                    "Parse assembly timed out (possible Keystone bug/syntax error). Aborting."
                 )
                 sys.exit(1)
             except KsError as e:
-                print("Syntax error: %s" % e)
+                sh.print("Syntax error: %s" % e)
                 continue
 
             try:
                 # write machine code to be emulated to memory
                 mu.mem_write(pc_addr, instrs)
             except UcError as e:
-                print("Memory write error: %s" % e)
+                sh.print("Memory write error: %s" % e)
                 continue
 
             try:
@@ -118,7 +118,7 @@ def main():
                     timeout=args.timeout * 1000
                 )
             except UcError as e:
-                print("Execution error: %s" % e)
+                sh.print("Execution error: %s" % e)
                 continue
 
             pc_addr += len(instrs)

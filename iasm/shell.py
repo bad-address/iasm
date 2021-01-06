@@ -2,18 +2,20 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
+from prompt_toolkit import print_formatted_text, HTML
+from prompt_toolkit.styles.pygments import style_from_pygments_cls
 
-from pygments.lexers.asm import NasmLexer
-from pygments.lexers import MarkdownLexer
-from pygments.lexers.python import Python3Lexer
 from prompt_toolkit.lexers import PygmentsLexer
 
-from pygments.formatters.terminal import TerminalFormatter
+from pygments.lexers.asm import NasmLexer
+from pygments.lexers.python import Python3Lexer
 
 from pygments.lexer import DelegatingLexer, do_insertions
 from pygments.token import Comment
 
-import pygments
+from pygments.styles import get_style_by_name
+
+from tabulate import tabulate, TableFormat, Line, DataRow
 
 from .mem import Bytearray
 from .arch import FlagRegister
@@ -23,6 +25,9 @@ from appdirs import AppDirs
 
 import os.path
 import os
+import copy
+
+from functools import partial
 
 COMMENT_SYM = ";"
 PY_EXEC_SYM = ";!"
@@ -57,11 +62,28 @@ class NasmPythonLexer(DelegatingLexer):
         )
 
 
-from pygments.styles import get_style_by_name
-from prompt_toolkit.styles.pygments import style_from_pygments_cls
+def _styled_datarow(begin, sep, end, cls, cell_values, colwidths, colaligns):
+    ''' Function that add a HTML style <cls> to each even cell value.
+        The rest of the parameters follows the tabulate's definition.
+        '''
+    values = (
+        c if i % 2 else ('<%s>%s</%s>' % (cls, c, cls))
+        for i, c in enumerate(cell_values)
+    )
+    return (begin + sep.join(values) + end).rstrip()
 
-from tabulate import tabulate
-import copy
+
+# Table format for the registers based on tabulate's 'simple' format
+_registers_table_fmt = TableFormat(
+    lineabove=Line("", "-", "  ", ""),
+    linebelowheader=Line("", "-", "  ", ""),
+    linebetweenrows=None,
+    linebelow=Line("", "-", "  ", ""),
+    headerrow=DataRow("", "  ", ""),
+    datarow=partial(_styled_datarow, "", "  ", "", "pygments.name"),
+    padding=0,
+    with_header_hide=["lineabove", "linebelow"],
+)
 
 
 class Shell:
@@ -79,6 +101,9 @@ class Shell:
 
     def prompt(self):
         return self.session.prompt('%s> ' % self.pc.repr_val())
+
+    def print(self, text):
+        print_formatted_text(text, style=self.style)
 
     def exec_python(self, cmd):
         regs = self.regs
@@ -105,9 +130,9 @@ class Shell:
                 if isinstance(ret, Bytearray):
                     ret = repr(ret)
                 if ret is not None:
-                    print(ret)
+                    self.print(ret)
         except Exception as err:
-            print("Eval error:", err)
+            self.print("Eval error:", err)
 
     def _create_shell_session(self, style):
         self.style = style = style_from_pygments_cls(get_style_by_name(style))
@@ -119,126 +144,7 @@ class Shell:
         history = FileHistory(history_path)
 
         kb = KeyBindings()
-
-        #   >         X    X    (white line)
-        #    ^^^^^^^  ^    ^
-        #  indent     |    |
-        #           enter enter
-        #             \    \
-        #             finish (single line)
-
-        #   > mov r0X, r1X
-        #    ^      ^    ^
-        # no indent |    |
-        #         enter enter
-        #           \    \
-        #           finish (single line)
-
-        #   >   mov r0X, r1X
-        #    ^^^      ^    ^
-        #  indent     |    |
-        #           enter enter
-        #             |    \
-        #           insert  insert
-        #             continue (new block/multiline)
-
-        #   >   mov r0X, r1
-        #   :   mov r2^, r3X
-        #    ^^^      |    ^
-        #  indent     |    |
-        #           enter enter
-        #             |    \
-        #           insert  insert
-        #             continue (already block/multiline)
-
-        #   >   mov r0X, r1
-        #   :         ^    X    (white line)
-        #    ^^^^^^^  |    ^
-        #  indent     |    |
-        #           enter enter --> finish
-        #             |
-        #           insert
-        #             continue (already block/multiline)
-
-        #   >   mov r0X, r1
-        #   : mov r2, ^  r3X
-        #    ^        |    ^
-        #  no indent  |    |
-        #           enter enter --> finish
-        #             |
-        #           insert
-        #             continue (already block/multiline)
-
-        @kb.add('enter')
-        def _(event):
-            buf = event.current_buffer
-            last_line = buf.text.split("\n")[-1]
-
-            is_indented = last_line.startswith(" ")
-            is_last_empty = len(last_line.lstrip()) == 0
-            is_multiline = '\n' in buf.text
-            is_at_end = buf.cursor_position == len(buf.text)
-
-            finish = None
-            # unrolled logic:
-            #   if is_last_empty and not is_multiline and is_indented:
-            #       finish = True
-            #
-            #   elif is_last_empty and not is_multiline and not is_indented:
-            #       finish = True
-            #
-            #   elif not is_last_empty and not is_multiline and not is_indented:
-            #       finish = True
-            #
-            #   elif not is_last_empty and not is_multiline and is_indented:
-            #       finish = False
-            #
-            #   elif not is_last_empty and is_multiline and is_indented:
-            #       finish = False
-            #
-            #   elif is_last_empty and is_multiline and is_indented:
-            #       if is_at_end:
-            #           finish = True
-            #       else
-            #           finish = False
-            #
-            #   elif not is_last_empty and is_multiline and not is_indented:
-            #       if is_at_end:
-            #           finish = True
-            #       else
-            #           finish = False
-            #
-            #   elif is_last_empty and is_multiline and not is_indented:
-            #       if is_at_end:
-            #           finish = True
-            #       else
-            #           finish = False
-            #   else:
-            #       assert False
-            ####
-
-            if is_multiline:
-                if not is_last_empty and is_indented:
-                    finish = False
-                else:
-                    finish = is_at_end == True
-            else:
-                if not is_last_empty and is_indented:
-                    finish = False
-                else:
-                    finish = True
-
-            assert finish in (True, False)
-            if finish:
-                buf.validate_and_handle()
-            else:
-                # TODO this should be the line within the cursor,
-                # not necessary the last
-                indentation = len(last_line) - len(last_line.lstrip())
-                buf.insert_text('\n' + ' ' * indentation)
-
-        def prompt_continuation(width, line_number, wrap_count):
-            return " " * (width - 3) + "-> "
+        _add_multiline_keybinding(kb)
 
         session = PromptSession(
             lexer=PygmentsLexer(NasmPythonLexer),
@@ -247,7 +153,7 @@ class Shell:
             history=history,
             key_bindings=kb,
             multiline=True,
-            prompt_continuation=prompt_continuation,
+            prompt_continuation=_prompt_continuation,
             auto_suggest=AutoSuggestFromHistory()
         )
 
@@ -259,37 +165,54 @@ class Shell:
         if columns is None:
             columns = self.columns
 
+        self._display_registers(regs, columns, flag_mode=False)
+        self._display_registers(regs, 1, flag_mode=True)
+
+    def _display_registers(self, regs, columns, flag_mode):
+        ''' Tabulate and display the registers that are *not* flags
+            (if flag_mode is False) or they *are* flags (if flag_mode is True).
+
+            Tabulate with the given columns and the defined self.style.
+            '''
         n = columns
         tmp = [
             (r.display_name(), r.repr_val()) for r in regs
-            if not isinstance(r, FlagRegister)
+            if (not isinstance(r, FlagRegister)) ^ flag_mode
         ]
         tmp = [sum(tmp[i:i + n], ()) for i in range(0, len(tmp), n)]
 
-        if tmp:
-            print(
-                tabulate(
-                    tmp, colalign=("right", "left"), disable_numparse=True
-                )
-            )
+        # due a bug in tabulate, we cannot use a custom tablefmt
+        # if the cells are multiline like in this case.
+        tablefmt = 'simple' if flag_mode else _registers_table_fmt
 
-        n = columns = 1
-        tmp = [
-            (r.display_name(), r.repr_val()) for r in regs
-            if isinstance(r, FlagRegister)
-        ]
-        tmp = [sum(tmp[i:i + n], ()) for i in range(0, len(tmp), n)]
+        self._tabulate_and_print(tmp, tablefmt)
 
-        if tmp:
-            print(
+    def _tabulate_and_print(self, data, tablefmt):
+        ''' Tabulate the given data (list of lists) so each
+            even column is aligned to the right and each odd
+            column is aligned to the left.
+
+            The given tablefmt allows to use a custom format.
+
+            The result of the tabulation is interpreted as HTML and
+            printed using self.style.
+            '''
+        if not data:
+            return
+        self.print(
+            HTML(
                 tabulate(
-                    tmp, colalign=("right", "left"), disable_numparse=True
+                    data,
+                    colalign=("right", "left"),
+                    disable_numparse=True,
+                    tablefmt=tablefmt
                 )
-            )
+            ),
+        )
 
     def show_doc(self, cmd):
         if not self.doc.enabled():
-            print("No documentation was loaded")
+            self.print("No documentation was loaded")
             return
 
         name = cmd.strip().split()[0]
@@ -297,7 +220,7 @@ class Shell:
         try:
             doc = self.doc.doc_for_instr(name)
         except KeyError:
-            print("No documentation was found for '%s'" % name)
+            self.print("No documentation was found for '%s'" % name)
             return
 
         pipepager(doc, 'pypager')
@@ -317,3 +240,127 @@ class Shell:
             return cmd.split(COMMENT_SYM, 1)
         else:
             return cmd, ''
+
+
+#   >         X    X    (white line)
+#    ^^^^^^^  ^    ^
+#  indent     |    |
+#           enter enter
+#             \    \
+#             finish (single line)
+
+#   > mov r0X, r1X
+#    ^      ^    ^
+# no indent |    |
+#         enter enter
+#           \    \
+#           finish (single line)
+
+#   >   mov r0X, r1X
+#    ^^^      ^    ^
+#  indent     |    |
+#           enter enter
+#             |    \
+#           insert  insert
+#             continue (new block/multiline)
+
+#   >   mov r0X, r1
+#   :   mov r2^, r3X
+#    ^^^      |    ^
+#  indent     |    |
+#           enter enter
+#             |    \
+#           insert  insert
+#             continue (already block/multiline)
+
+#   >   mov r0X, r1
+#   :         ^    X    (white line)
+#    ^^^^^^^  |    ^
+#  indent     |    |
+#           enter enter --> finish
+#             |
+#           insert
+#             continue (already block/multiline)
+
+#   >   mov r0X, r1
+#   : mov r2, ^  r3X
+#    ^        |    ^
+#  no indent  |    |
+#           enter enter --> finish
+#             |
+#           insert
+#             continue (already block/multiline)
+
+
+def _add_multiline_keybinding(kb):
+    @kb.add('enter')
+    def _(event):
+        buf = event.current_buffer
+        last_line = buf.text.split("\n")[-1]
+
+        is_indented = last_line.startswith(" ")
+        is_last_empty = len(last_line.lstrip()) == 0
+        is_multiline = '\n' in buf.text
+        is_at_end = buf.cursor_position == len(buf.text)
+
+        finish = None
+        # unrolled logic:
+        #   if is_last_empty and not is_multiline and is_indented:
+        #       finish = True
+        #
+        #   elif is_last_empty and not is_multiline and not is_indented:
+        #       finish = True
+        #
+        #   elif not is_last_empty and not is_multiline and not is_indented:
+        #       finish = True
+        #
+        #   elif not is_last_empty and not is_multiline and is_indented:
+        #       finish = False
+        #
+        #   elif not is_last_empty and is_multiline and is_indented:
+        #       finish = False
+        #
+        #   elif is_last_empty and is_multiline and is_indented:
+        #       if is_at_end:
+        #           finish = True
+        #       else
+        #           finish = False
+        #
+        #   elif not is_last_empty and is_multiline and not is_indented:
+        #       if is_at_end:
+        #           finish = True
+        #       else
+        #           finish = False
+        #
+        #   elif is_last_empty and is_multiline and not is_indented:
+        #       if is_at_end:
+        #           finish = True
+        #       else
+        #           finish = False
+        #   else:
+        #       assert False
+        ####
+
+        if is_multiline:
+            if not is_last_empty and is_indented:
+                finish = False
+            else:
+                finish = is_at_end == True
+        else:
+            if not is_last_empty and is_indented:
+                finish = False
+            else:
+                finish = True
+
+        assert finish in (True, False)
+        if finish:
+            buf.validate_and_handle()
+        else:
+            # TODO this should be the line within the cursor,
+            # not necessary the last
+            indentation = len(last_line) - len(last_line.lstrip())
+            buf.insert_text('\n' + ' ' * indentation)
+
+
+def _prompt_continuation(width, line_number, wrap_count):
+    return " " * (width - 3) + "-> "

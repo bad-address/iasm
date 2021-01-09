@@ -463,7 +463,7 @@ def select_registers(regs, globs):
 
     selected = []
     for g in globs:
-        if g[0] == "!":
+        if g and g[0] == "!":
             selected = [r for r in selected if not fnmatch(r.name, g[1:])]
         else:
             more = [

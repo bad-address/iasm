@@ -135,6 +135,22 @@ def build_argparser():
     )
 
     parser.add_argument(
+        "--disable-history",
+        action='store_true',
+        required=False,
+        default=False,
+        help='disable shell history of the commands.'
+    )
+
+    parser.add_argument(
+        "--disable-colors",
+        action='store_true',
+        required=False,
+        default=False,
+        help='disable shell colors and syntax highlight.'
+    )
+
+    parser.add_argument(
         '-V',
         '--version',
         nargs=0,

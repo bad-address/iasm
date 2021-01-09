@@ -87,9 +87,14 @@ _registers_table_fmt = TableFormat(
 
 
 class Shell:
-    def __init__(self, style, regs, pc, mem, mu, columns, doc, prompt):
+    def __init__(
+        self, style, regs, pc, mem, mu, columns, doc, prompt, disable_history,
+        disable_colors
+    ):
         self.dirs = AppDirs("iasm", "badaddr")
-        self.session = self._create_shell_session(style)
+        self.session = self._create_shell_session(
+            style, disable_history, disable_colors
+        )
 
         self.regs = regs
         self.pc = pc
@@ -136,28 +141,38 @@ class Shell:
         except Exception as err:
             self.print("Eval error:", err)
 
-    def _create_shell_session(self, style):
-        self.style = style = style_from_pygments_cls(get_style_by_name(style))
-
+    def _create_shell_session(self, style, disable_history, disable_colors):
         user_dir = self.dirs.user_data_dir
         os.makedirs(user_dir, exist_ok=True)
-
-        history_path = os.path.join(user_dir, HISTORY_FILEPATH)
-        history = FileHistory(history_path)
 
         kb = KeyBindings()
         _add_multiline_keybinding(kb)
 
-        session = PromptSession(
-            lexer=PygmentsLexer(NasmPythonLexer),
-            style=style,
-            include_default_pygments_style=False,
-            history=history,
+        kargs = dict(
             key_bindings=kb,
             multiline=True,
-            prompt_continuation=_prompt_continuation,
-            auto_suggest=AutoSuggestFromHistory()
+            prompt_continuation=_prompt_continuation
         )
+
+        if not disable_history:
+            history_path = os.path.join(user_dir, HISTORY_FILEPATH)
+            history = FileHistory(history_path)
+            kargs.update(
+                dict(history=history, auto_suggest=AutoSuggestFromHistory())
+            )
+
+        self.style = None
+        if not disable_colors:
+            self.style = style_from_pygments_cls(get_style_by_name(style))
+            kargs.update(
+                dict(
+                    lexer=PygmentsLexer(NasmPythonLexer),
+                    style=self.style,
+                    include_default_pygments_style=False
+                )
+            )
+
+        session = PromptSession(**kargs)
 
         return session
 

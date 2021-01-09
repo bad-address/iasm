@@ -24,5 +24,5 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 try:
     from .iasm import main
-except SystemError:
+except (SystemError, ImportError):
     pass  # this happens when importing from setup.py

@@ -87,7 +87,7 @@ _registers_table_fmt = TableFormat(
 
 
 class Shell:
-    def __init__(self, style, regs, pc, mem, mu, columns, doc):
+    def __init__(self, style, regs, pc, mem, mu, columns, doc, prompt):
         self.dirs = AppDirs("iasm", "badaddr")
         self.session = self._create_shell_session(style)
 
@@ -98,9 +98,11 @@ class Shell:
         self.columns = columns
 
         self.doc = doc
+        self._ps = prompt
 
     def prompt(self):
-        return self.session.prompt('%s> ' % self.pc.repr_val())
+        ps = self._ps.format(pc=self.pc.repr_val())
+        return self.session.prompt(ps)
 
     def print(self, text):
         print_formatted_text(text, style=self.style)

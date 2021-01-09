@@ -126,6 +126,15 @@ def build_argparser():
     )
 
     parser.add_argument(
+        "--prompt",
+        metavar='<prompt>',
+        dest='prompt',
+        required=False,
+        default='{pc}> ',
+        help='prompt of the shell.'
+    )
+
+    parser.add_argument(
         '-V',
         '--version',
         nargs=0,

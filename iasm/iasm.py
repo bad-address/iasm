@@ -26,7 +26,7 @@ def main():
 
     # Create prompt/shell object.
     doc = None
-    sh = Shell(args.style, regs, pc, mem, mu, 4, doc)
+    sh = Shell(args.style, regs, pc, mem, mu, 4, doc, args.prompt)
 
     # Show regs and exit if requested
     if args.show_regs:

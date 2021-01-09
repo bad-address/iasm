@@ -12,7 +12,7 @@ from bisect import bisect_right
 class Bytearray(bytearray):
     def __repr__(self):
         r = super().__repr__()
-        assert r.startswith("bytearray(b")
+        assert r.startswith("bytearray(b") or r.startswith("Bytearray(b")
         return "[%s]" % r[12:-2]
 
 

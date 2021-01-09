@@ -127,17 +127,21 @@ class Shell:
             except SyntaxError:
                 # probably it is not an expression, let's try
                 # now as a full statement
-                exec(cmd, None, new_ctx)
-                for reg in regs:
-                    if new_ctx[reg.name] != current_ctx[reg.name]:
-                        reg.val = new_ctx[reg.name]
+                try:
+                    exec(cmd, None, new_ctx)
+                except Exception as err:
+                    self.print("Exec error: %s" % err)
+                else:
+                    for reg in regs:
+                        if new_ctx[reg.name] != current_ctx[reg.name]:
+                            reg.val = new_ctx[reg.name]
             else:
                 if isinstance(ret, Bytearray):
                     ret = repr(ret)
                 if ret is not None:
                     self.print(ret)
         except Exception as err:
-            self.print("Eval error:", err)
+            print("Eval error: %s" % err)
 
     def _create_shell_session(self, style, no_history):
         user_dir = self.dirs.user_data_dir

@@ -88,13 +88,10 @@ _registers_table_fmt = TableFormat(
 
 class Shell:
     def __init__(
-        self, style, regs, pc, mem, mu, columns, doc, prompt, alt_prompt,
-        disable_history, disable_colors
+        self, style, regs, pc, mem, mu, columns, doc, simple_prompt, no_history
     ):
         self.dirs = AppDirs("iasm", "badaddr")
-        self.session = self._create_shell_session(
-            style, disable_history, disable_colors
-        )
+        self.session = self._create_shell_session(style, no_history)
 
         self.regs = regs
         self.pc = pc
@@ -103,8 +100,8 @@ class Shell:
         self.columns = columns
 
         self.doc = doc
-        self._ps = prompt
-        self._ps2 = alt_prompt
+        self._ps = ':> ' if simple_prompt else '{pc}> '
+        self._ps2 = '-> '
 
     def prompt(self):
         ps = self._ps.format(pc=self.pc.repr_val())
@@ -142,7 +139,7 @@ class Shell:
         except Exception as err:
             self.print("Eval error:", err)
 
-    def _create_shell_session(self, style, disable_history, disable_colors):
+    def _create_shell_session(self, style, no_history):
         user_dir = self.dirs.user_data_dir
         os.makedirs(user_dir, exist_ok=True)
 
@@ -158,7 +155,7 @@ class Shell:
             prompt_continuation=_prompt_continuation
         )
 
-        if not disable_history:
+        if not no_history:
             history_path = os.path.join(user_dir, HISTORY_FILEPATH)
             history = FileHistory(history_path)
             kargs.update(
@@ -166,7 +163,7 @@ class Shell:
             )
 
         self.style = None
-        if not disable_colors:
+        if style != 'none':
             self.style = style_from_pygments_cls(get_style_by_name(style))
             kargs.update(
                 dict(

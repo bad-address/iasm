@@ -74,7 +74,7 @@ def build_argparser():
         required=False,
         default='paraiso-dark',
         help='style for the prompt.',
-        choices=list(sorted(get_all_styles()))
+        choices=sorted(list(get_all_styles()) + ['none'])
     )
 
     parser.add_argument(
@@ -126,37 +126,20 @@ def build_argparser():
     )
 
     parser.add_argument(
-        "--prompt",
-        metavar='<prompt>',
-        dest='prompt',
+        "--simple-prompt",
+        action='store_true',
+        dest='simple_prompt',
         required=False,
-        default='{pc}> ',
-        help='prompt of the shell.'
+        default=False,
+        help='simpler alternative prompt.'
     )
 
     parser.add_argument(
-        "--alt-prompt",
-        metavar='<alt-prompt>',
-        dest='alt_prompt',
-        required=False,
-        default='-> ',
-        help='alternative prompt of the shell.'
-    )
-
-    parser.add_argument(
-        "--disable-history",
+        "--no-history",
         action='store_true',
         required=False,
         default=False,
         help='disable shell history of the commands.'
-    )
-
-    parser.add_argument(
-        "--disable-colors",
-        action='store_true',
-        required=False,
-        default=False,
-        help='disable shell colors and syntax highlight.'
     )
 
     parser.add_argument(

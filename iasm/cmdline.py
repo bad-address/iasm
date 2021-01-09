@@ -135,6 +135,15 @@ def build_argparser():
     )
 
     parser.add_argument(
+        "--alt-prompt",
+        metavar='<alt-prompt>',
+        dest='alt_prompt',
+        required=False,
+        default='-> ',
+        help='alternative prompt of the shell.'
+    )
+
+    parser.add_argument(
         "--disable-history",
         action='store_true',
         required=False,

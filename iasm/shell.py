@@ -88,8 +88,8 @@ _registers_table_fmt = TableFormat(
 
 class Shell:
     def __init__(
-        self, style, regs, pc, mem, mu, columns, doc, prompt, disable_history,
-        disable_colors
+        self, style, regs, pc, mem, mu, columns, doc, prompt, alt_prompt,
+        disable_history, disable_colors
     ):
         self.dirs = AppDirs("iasm", "badaddr")
         self.session = self._create_shell_session(
@@ -104,6 +104,7 @@ class Shell:
 
         self.doc = doc
         self._ps = prompt
+        self._ps2 = alt_prompt
 
     def prompt(self):
         ps = self._ps.format(pc=self.pc.repr_val())
@@ -147,6 +148,9 @@ class Shell:
 
         kb = KeyBindings()
         _add_multiline_keybinding(kb)
+
+        def _prompt_continuation(width, line_number, wrap_count):
+            return " " * (width - len(self._ps2)) + self._ps2
 
         kargs = dict(
             key_bindings=kb,
@@ -377,7 +381,3 @@ def _add_multiline_keybinding(kb):
             # not necessary the last
             indentation = len(last_line) - len(last_line.lstrip())
             buf.insert_text('\n' + ' ' * indentation)
-
-
-def _prompt_continuation(width, line_number, wrap_count):
-    return " " * (width - 3) + "-> "

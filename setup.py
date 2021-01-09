@@ -23,6 +23,7 @@ required_deps=[
     'tabulate',
     'pypager',
     'appdirs',
+    'bitstring',
     ]
 
 setup(

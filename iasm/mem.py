@@ -1,5 +1,6 @@
 from unicorn import UC_PROT_ALL
 from bisect import bisect_right
+import xview
 '''
 >>> from iasm.arch import get_engines
 >>> from iasm.mem import Memory
@@ -15,10 +16,21 @@ class Bytearray(bytearray):
         assert r.startswith("bytearray(b") or r.startswith("Bytearray(b")
         return "[%s]" % r[12:-2]
 
+    def _conf(self, arch, mode, addr):
+        self._arch, self._mode, self._addr = arch, mode, addr
+
+    def hex(self):
+        xview.hexdump(memoryview(self), start_addr=self._addr, compress=True)
+
+    def disass(self, endianess='=', arch=None, mode=None):
+        extra_kargs = {'arch': arch or self._arch, 'mode': mode or self._mode}
+        xview.display('uu', bytes(self), start_addr=self._addr, endianess=endianess, extra_kargs=extra_kargs)
 
 class Memory:
-    def __init__(self, mu):
+    def __init__(self, mu, arch, mode):
         self._mu = mu
+        self._arch = arch
+        self._mode = mode
 
     def _unpack_index(self, ix):
         ''' Given an index, unpack it into a tuple with the start and
@@ -26,7 +38,7 @@ class Memory:
 
             A single address is seen as a region of 1 byte:
 
-            >>> m = Memory(mu)
+            >>> m = Memory(mu, 'x86', '32')
             >>> m._unpack_index(4)
             (4, 5, None)
 
@@ -110,7 +122,7 @@ class Memory:
         ''' Find the memory region mapped that contains the given
             address.
 
-            >>> m = Memory(mu)
+            >>> m = Memory(mu, 'x86', '32')
             >>> list(mu.mem_regions())
             [(8192, 16383, 7)]
 
@@ -169,7 +181,7 @@ class Memory:
         ''' Given an index, find that mapped subregion that contains
             the address/range of addresses.
 
-            >>> m = Memory(mu)
+            >>> m = Memory(mu, 'x86', '32')
             >>> m
             [0x2000-0x3fff] (sz 0x2000)
 
@@ -262,7 +274,7 @@ class Memory:
     def __getitem__(self, ix):
         ''' Get the mutable bytes of a (sub)region mapped, indexed by <ix>.
 
-            >>> m = Memory(mu)
+            >>> m = Memory(mu, 'x86', '32')
             >>> list(mu.mem_regions())
             [(8192, 16383, 7)]
 
@@ -280,12 +292,14 @@ class Memory:
         region = self._find_mapped_subregion(start, stop)
 
         mem_sz = self._size_of_region(region)
-        return Bytearray(self._mu.mem_read(region[0], mem_sz))
+        b = Bytearray(self._mu.mem_read(region[0], mem_sz))
+        b._conf(self._arch, self._mode, region[0])
+        return b
 
     def __setitem__(self, ix, val):
         ''' Set a value in a memory mapped region.
 
-            >>> m = Memory(mu)
+            >>> m = Memory(mu, 'x86', '32')
             >>> m
             [0x2000-0x3fff] (sz 0x2000)
 
@@ -433,7 +447,7 @@ class Memory:
         ''' Unmap a subregion of memory.
 
             >>> mu.mem_map(0x8000, 0x24000)
-            >>> m = Memory(mu)
+            >>> m = Memory(mu, 'x86', '32')
             >>> m
             [0x2000-0x3fff] (sz 0x2000)
             [0x8000-0x2bfff] (sz 0x24000)

@@ -504,5 +504,5 @@ def get_engines(arch_name, mode_name):
     # Note: this fails ks.syntax = KS_OPT_SYNTAX_GAS or KS_OPT_SYNTAX_NASM
 
     regs, pc = get_registers(mu, arch_name, mode_name)
-    mem = Memory(mu)
+    mem = Memory(mu, arch_name, mode_name)
     return ks, mu, regs, pc, mem

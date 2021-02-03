@@ -24,6 +24,7 @@ required_deps=[
     'pypager',
     'appdirs',
     'bitstring',
+    'xview',
     ]
 
 setup(

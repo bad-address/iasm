@@ -16,15 +16,40 @@ class Bytearray(bytearray):
         assert r.startswith("bytearray(b") or r.startswith("Bytearray(b")
         return "[%s]" % r[12:-2]
 
-    def _conf(self, arch, mode, addr):
-        self._arch, self._mode, self._addr = arch, mode, addr
+    def _conf(self, mu, arch, mode, addr):
+        self._mu, self._arch, self._mode, self._addr = mu, arch, mode, addr
 
     def hex(self):
         xview.hexdump(memoryview(self), start_addr=self._addr, compress=True)
 
     def disass(self, endianess='=', arch=None, mode=None):
         extra_kargs = {'arch': arch or self._arch, 'mode': mode or self._mode}
-        xview.display('uu', bytes(self), start_addr=self._addr, endianess=endianess, extra_kargs=extra_kargs)
+        xview.display(
+            'uu',
+            bytes(self),
+            start_addr=self._addr,
+            endianess=endianess,
+            extra_kargs=extra_kargs
+        )
+
+    def save(self, fname, mode='wb'):
+        with open(fname, mode) as f:
+            f.write(self)
+        print("Saved %i bytes" % len(self))
+
+    def load(self, fname, mode='rb'):
+        with open(fname, mode) as f:
+            data = f.read()
+
+        if len(data) > len(self):
+            raise ValueError(
+                "The read %i bytes do not fit in the allocated %i bytes" %
+                (len(data), len(self))
+            )
+
+        self._mu.mem_write(self._addr, data)
+        print("Loaded %i bytes" % len(data))
+
 
 class Memory:
     def __init__(self, mu, arch, mode):
@@ -293,7 +318,7 @@ class Memory:
 
         mem_sz = self._size_of_region(region)
         b = Bytearray(self._mu.mem_read(region[0], mem_sz))
-        b._conf(self._arch, self._mode, region[0])
+        b._conf(self._mu, self._arch, self._mode, region[0])
         return b
 
     def __setitem__(self, ix, val):

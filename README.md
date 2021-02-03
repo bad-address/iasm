@@ -63,6 +63,21 @@ Mapping memory region [0x1000-0x1fff] (sz 0x1000)
 [0x1000-0x1fff] (sz 0x1000)
 [0x1000000-0x11fffff] (sz 0x200000)
 
+100:0> ;! M[0x1000:0x2000].load("foo")  # load from a file
+Loaded 1201 bytes
+
+100:0> ;! M[0x1000:0x2000].save("dump") # save a dump in a file
+Saved 4096 bytes
+
+100:0> ;! M[0x1000:0x1000+46].hex() # display in hexdump
+00001000  31 36 30 34 31 35 31 33  30 38 39 34 37 09 67 65  |1604151308947.ge|
+00001010  63 6b 6f 64 72 69 76 65  72 09 49 4e 46 4f 09 4c  |ckodriver.INFO.L|
+00001020  69 73 74 65 6e 69 6e 67  20 6f 6e 20 31           |istening on 1   |
+
+100:0> ;! M[0x1000:0x1000+8].disass()   # disassembly
+00001000  ldrtlo  r3, [r0], #-0x631
+00001004  teqlo   r1, #0xc400000
+
 100:0> ;! del M[0x1000:0x2000]    # unmap
 ```
 

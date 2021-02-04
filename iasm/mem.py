@@ -10,11 +10,11 @@ import xview
 '''
 
 
-class Bytearray(bytearray):
+class ImmutableBytes(bytes):
     def __repr__(self):
         r = super().__repr__()
-        assert r.startswith("bytearray(b") or r.startswith("Bytearray(b")
-        return "[%s]" % r[12:-2]
+        assert r.startswith("b")
+        return "[%s]" % r[2:-1]
 
     def _conf(self, mu, arch, mode, addr):
         self._mu, self._arch, self._mode, self._addr = mu, arch, mode, addr
@@ -297,7 +297,7 @@ class Memory:
         return region[1] - region[0] + 1
 
     def __getitem__(self, ix):
-        ''' Get the mutable bytes of a (sub)region mapped, indexed by <ix>.
+        ''' Get the immutable bytes of a (sub)region mapped, indexed by <ix>.
 
             >>> m = Memory(mu, 'x86', '32')
             >>> list(mu.mem_regions())
@@ -312,12 +312,44 @@ class Memory:
 
             >>> m[0x2000:0x2004]
             [\x00\x00\x00\x00]
+
+            The immutable bytes returned can be seen as hexdumps
+            or they can be interpreted as code and get disassembled:
+
+            >>> m[0x2000:0x2010].hex()
+            00002000  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+
+            >>> m[0x2000:0x2006].disass()
+            00002000  add     byte ptr [eax], al
+            00002002  add     byte ptr [eax], al
+            00002004  add     byte ptr [eax], al
+
+            They can also be dumped to disk and retrieved later:
+
+            >>> m[0x2000:0x2006] = 0x41
+            >>> m[0x2000:0x2006].save("some_a")
+            Saved 6 bytes
+
+            >>> m[0x2000:0x2006] = 0 # reset
+            >>> m[0x2000:].load("some_a")
+            Loaded 6 bytes
+            >>> m[0x2000:0x2006]
+            [AAAAAA]
+
+            When loading the memory allocated must be greater than
+            the data you want to load, otherwise will fail:
+
+            >>> m[0x2000:0x2006].load("some_a") # no problem
+            Loaded 6 bytes
+            >>> m[0x2000:0x2002].load("some_a") # too small!!
+            Traceback<...>
+            ValueError: The read 6 bytes do not fit in the allocated 2 bytes
         '''
         start, stop, elem_sz = self._unpack_index(ix)
         region = self._find_mapped_subregion(start, stop)
 
         mem_sz = self._size_of_region(region)
-        b = Bytearray(self._mu.mem_read(region[0], mem_sz))
+        b = ImmutableBytes(self._mu.mem_read(region[0], mem_sz))
         b._conf(self._mu, self._arch, self._mode, region[0])
         return b
 
@@ -328,30 +360,30 @@ class Memory:
             >>> m
             [0x2000-0x3fff] (sz 0x2000)
 
-            >>> m[0x2003] = b'\x01'
-            >>> m[0x2000:0x2005]
+            >>> m[0x2103] = b'\x01'
+            >>> m[0x2100:0x2105]
             [\x00\x00\x00\x01\x00]
 
             More than one byte can be set if the sizes of the region and the
             input match:
 
-            >>> m[0x2000:0x2004] = b'\x02' * 4
-            >>> m[0x2000:0x2005]
+            >>> m[0x2100:0x2104] = b'\x02' * 4
+            >>> m[0x2100:0x2105]
             [\x02\x02\x02\x02\x00]
 
-            >>> m[0x2000:0x2004] = b'\x00' * 2
+            >>> m[0x2100:0x2104] = b'\x00' * 2
             <...>
-            ValueError: Mismatch sizes: trying to set 0x2 bytes into mapped region [0x2000-0x2003] (sz 0x4).
+            ValueError: Mismatch sizes: trying to set 0x2 bytes into mapped region [0x2100-0x2103] (sz 0x4).
 
             If an integer is used, the whole region is set to that value
             (like memset)
 
-            >>> m[0x2000:0x2004] = 0
-            >>> m[0x2000:0x2005]
+            >>> m[0x2100:0x2104] = 0
+            >>> m[0x2100:0x2105]
             [\x00\x00\x00\x00\x00]
 
-            >>> m[0x2000:0x2004] = 2
-            >>> m[0x2000:0x2005]
+            >>> m[0x2100:0x2104] = 2
+            >>> m[0x2100:0x2105]
             [\x02\x02\x02\x02\x00]
 
             If the region is not mapped, it is automatically mapped:
@@ -374,9 +406,10 @@ class Memory:
             IndexError: Memory region '[0x1000-0x3000)' is partially mapped. Region mapped is [0x2000-0x3fff] (sz 0x2000).
             The range [0x1000-0x3000) cannot be mapped because it overlaps with a previous mapped region [0x2000-0x3fff] (sz 0x2000).
 
-            The start or the stop addresses can be ommited to set "from the
+            The start or the stop addresses can be omitted to set "from the
             begin" or "to the end" of the region.
 
+            >>> m[0x2000:] = 2
             >>> m[0x2002:] = 4
             >>> m[0x2000:0x2005]
             [\x02\x02\x04\x04\x04]

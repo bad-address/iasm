@@ -17,7 +17,7 @@ from pygments.styles import get_style_by_name
 
 from tabulate import tabulate, TableFormat, Line, DataRow
 
-from .mem import Bytearray
+from .mem import ImmutableBytes
 from .arch import FlagRegister
 
 from pydoc import pipepager
@@ -136,7 +136,7 @@ class Shell:
                         if new_ctx[reg.name] != current_ctx[reg.name]:
                             reg.val = new_ctx[reg.name]
             else:
-                if isinstance(ret, Bytearray):
+                if isinstance(ret, ImmutableBytes):
                     ret = repr(ret)
                 if ret is not None:
                     self.print(ret)

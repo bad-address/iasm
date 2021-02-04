@@ -1,6 +1,6 @@
 '''Interactive Assembler'''
 
-__version__ = "0.0.10"
+__version__ = "0.0.11"
 
 _author = 'Di Paola Martin'
 _license = 'GNU GPLv3'

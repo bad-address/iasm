@@ -24,11 +24,18 @@ def main():
     # Initialize engines
     ks, mu, regs, pc, mem = get_engines(args.arch, args.mode)
 
+    # What registers do we want to show by default always
+    reg_globs = args.reg_globs
+    if not reg_globs:
+        reg_globs = _supported_regs[args.arch][-2]
+
+    visible_regs = list(select_registers(regs, reg_globs))
+
     # Create prompt/shell object.
     doc = None
     sh = Shell(
         args.style, regs, pc, mem, mu, 4, doc, args.simple_prompt,
-        args.no_history
+        args.no_history, visible_regs
     )
 
     # Show regs and exit if requested
@@ -39,12 +46,6 @@ def main():
     # Load the documentation
     doc = Documentation(args.arch, args.isa_version)
     sh.doc = doc
-
-    reg_globs = args.reg_globs
-    if not reg_globs:
-        reg_globs = _supported_regs[args.arch][-2]
-
-    visible_regs = list(select_registers(regs, reg_globs))
 
     # TODO what is the meaning of a loop?
     pc.val = pc_addr = args.pc_addr

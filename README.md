@@ -179,6 +179,36 @@ r8  0  r9/sb  0
 So the expression `r[0-9]` selects all the Arm registers from `r0` to
 `r15`.
 
+You can change the set of registers to display from `iasm` with the
+`show()` function:
+
+```nasm
+:> ;! show('r[0-3]')
+--  -  --  -  --  -  --  -
+r0  4  r1  8  r2  0  r3  0
+--  -  --  -  --  -  --  -
+```
+
+If you want to change the register set permanently add `stick=True`:
+
+```nasm
+:> ;! show('r[0-3]', stick=True)
+--  -  --  -  --  -  --  -
+r0  4  r1  8  r2  0  r3  0
+--  -  --  -  --  -  --  -
+
+:> mov r2, r1
+--  -  --  -  --  -  --  -
+r0  4  r1  8  r2  8  r3  0
+--  -  --  -  --  -  --  -
+```
+
+Call `show(stick=True)` to restore the defaults:
+
+```nasm
+:> ;! show(stick=True)
+```
+
 ### Compressed hex values
 
 32 bit numbers are too large to display (and 64 bit address are

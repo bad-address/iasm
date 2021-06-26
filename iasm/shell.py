@@ -18,7 +18,7 @@ from pygments.styles import get_style_by_name
 from tabulate import tabulate, TableFormat, Line, DataRow
 
 from .mem import ImmutableBytes
-from .arch import FlagRegister
+from .arch import FlagRegister, select_registers
 
 from pydoc import pipepager
 from appdirs import AppDirs
@@ -88,7 +88,8 @@ _registers_table_fmt = TableFormat(
 
 class Shell:
     def __init__(
-        self, style, regs, pc, mem, mu, columns, doc, simple_prompt, no_history
+        self, style, regs, pc, mem, mu, columns, doc, simple_prompt,
+        no_history, visible_regs
     ):
         self.dirs = AppDirs("iasm", "badaddr")
         self.session = self._create_shell_session(style, no_history)
@@ -99,12 +100,21 @@ class Shell:
         self.mu = mu
         self.columns = columns
 
+        self.visible_regs = visible_regs
+        self.visible_regs_default = list(visible_regs)  # a copy is required
+
         self.doc = doc
         self._ps = ':> ' if simple_prompt else '{pc}> '
         self._ps2 = '-> '
 
+        # Variable to avoid displaying the registers more than once
+        # This could happen if the user calls show() (see exec_python)
+        # The variable is set on display_registers() and reset on prompt()
+        self._regs_displayed = False
+
     def prompt(self):
         ps = self._ps.format(pc=self.pc.repr_val())
+        self._regs_displayed = False
         return self.session.prompt(ps)
 
     def print(self, text):
@@ -115,9 +125,33 @@ class Shell:
         mem = self.mem
         mu = self.mu
 
+        def show(*reg_globs, stick=False):
+            ''' Show the given registers (glob patterns).
+
+                If stick is True, the selected registers will be displayed
+                by default before each prompt of the shell.
+
+                If no glob pattern is provided, it will show the registers
+                selected from the command line or the default
+                of the architecture.
+
+                Call show('') to match no register (useless) and
+                show('', stick=True) to disable the display (more useful)
+            '''
+            if reg_globs:
+                sel = list(select_registers(self.regs, reg_globs))
+            else:
+                sel = self.visible_regs_default
+
+            self.display_registers(sel)
+            if stick:
+                # update implace
+                self.visible_regs[:] = sel
+
         current_ctx = {r.name: r.val for r in regs}
         current_ctx['U'] = mu
         current_ctx['M'] = mem
+        current_ctx['show'] = show
 
         new_ctx = copy.copy(current_ctx)  # shallow copy
         try:
@@ -183,6 +217,10 @@ class Shell:
         return session
 
     def display_registers(self, regs=None, columns=None):
+        if self._regs_displayed:
+            return
+        self._regs_displayed = True
+
         if regs is None:
             regs = self.regs
         if columns is None:

@@ -117,7 +117,7 @@ _supported_regs = {
     'sparc':
     (unicorn.sparc_const, 'UC_SPARC_REG_', set(), 'pc', {}, ['pc'], {}),
     'x86': (
-        unicorn.x86_const, 'UC_X86_REG_', {'MSR'}, {
+        unicorn.x86_const, 'UC_X86_REG_', {'msr'}, {
             '32': 'eip',
             '64': 'rip'
         }, {}, ["e?x", "esi", "edi", "eip"], {}
@@ -218,7 +218,12 @@ class Register(
         '''
     @property
     def val(self):
-        return self.mu.reg_read(self.const)
+        try:
+            return self.mu.reg_read(self.const)
+        except Exception as err:
+            raise Exception(
+                f"Register {self.name} ({self.alias}) could not be read."
+            ) from err
 
     @val.setter
     def val(self, v):

@@ -256,7 +256,7 @@ details.
 $ pip install iasm          # byexample: +skip
 
 $ iasm -V                   # byexample: +norm-ws
-iasm 0.1.2 (Python <...>, Keystone <...>, Unicorn <...>) - GNU GPLv3
+iasm 0.1.3 (Python <...>, Keystone <...>, Unicorn <...>) - GNU GPLv3
 Interactive Assembler
 Copyright (C) Di Paola Martin - https://github.com/bad-address/iasm
 <...>

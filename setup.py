@@ -25,6 +25,7 @@ required_deps=[
     'appdirs',
     'bitstring',
     'xview',
+    'capstone',
     ]
 
 setup(

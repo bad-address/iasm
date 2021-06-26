@@ -52,13 +52,23 @@ class ImmutableBytes(bytes):
 
 
 class Memory:
-    def __init__(self, mu, arch, mode):
+    def __init__(self, mu, arch, mode, page_size=0x1000):
         self._mu = mu
         self._arch = arch
         self._mode = mode
+        self._page_size = page_size
+        self._page_mask = page_size - 1
+
+    @property
+    def page_size(self):
+        return self._page_size
+
+    @property
+    def page_mask(self):
+        return self._page_mask
 
     def _unpack_index(self, ix):
-        ''' Given an index, unpack it into a tuple with the start and
+        ''' Given an index, unpack it into a tuple with the begin and
             end addresses and the element size.
 
             A single address is seen as a region of 1 byte:
@@ -103,12 +113,12 @@ class Memory:
             <...>
             IndexError: Addresses must be non-negative.
 
-            And the stop address must be greather or equal than the start
-            address:
+            And the end address (stop) must be greather or equal than
+            the begin address (start):
 
             >>> m._unpack_index(slice(1, 1))
             <...>
-            IndexError: Start address cannot be greather or equal to the stop address, [0x1-0x1)
+            IndexError: Begin address cannot be greather or equal to the end address, [0x1-0x1)
 
         '''
 
@@ -134,7 +144,7 @@ class Memory:
         if (ix.start is not None and ix.stop is not None):
             if (ix.start >= ix.stop):
                 raise IndexError(
-                    "Start address cannot be greather or equal to the stop address, %s"
+                    "Begin address cannot be greather or equal to the end address, %s"
                     % self._str_range(ix.start, ix.stop)
                 )
 
@@ -182,11 +192,11 @@ class Memory:
 
         return None
 
-    def _str_range(self, start, stop):
+    def _str_range(self, begin, end):
         msg = '['
-        msg += '...' if start is None else hex(start)
+        msg += '...' if begin is None else hex(begin)
         msg += "-"
-        msg += '...' if stop is None else hex(stop)
+        msg += '...' if end is None else hex(end)
         msg += ')'
 
         return msg
@@ -202,7 +212,7 @@ class Memory:
 
         return msg
 
-    def _find_mapped_subregion(self, start, stop):
+    def _find_mapped_subregion(self, begin, end):
         ''' Given an index, find that mapped subregion that contains
             the address/range of addresses.
 
@@ -220,13 +230,13 @@ class Memory:
             >>> m._str_region(m._find_mapped_subregion(0x2002, 0x3002))
             '[0x2002-0x3001] (sz 0x1000)'
 
-            Note how the start address is inclusive and the stop address
+            Note how the begin address is inclusive and the end address
             is exclusive like Python ranges/slices.
 
             But the returned memory region has the begin and end addresses
             both inclusive.
 
-            The start or the stop addresses can be None meaning the begin
+            The begin or the end addresses can be None meaning the begin
             or the end of the full mapped region:
 
             >>> m._str_region(m._find_mapped_subregion(None, 0x3000))
@@ -252,46 +262,46 @@ class Memory:
 
         '''
 
-        if start is not None:
-            region = self._find_mapped_region_that_contains(start)
+        if begin is not None:
+            region = self._find_mapped_region_that_contains(begin)
 
             if not region:
-                if stop is not None:
-                    region = self._find_mapped_region_that_contains(stop - 1)
+                if end is not None:
+                    region = self._find_mapped_region_that_contains(end - 1)
 
                 if region:
                     err = IndexError(
                         "Memory region '%s' is partially mapped. Region mapped is %s."
                         % (
-                            self._str_range(start,
-                                            stop), self._str_region(region)
+                            self._str_range(begin,
+                                            end), self._str_region(region)
                         )
                     )
                     err.mapped_region = region
                     raise err
         else:
-            assert stop is not None
-            region = self._find_mapped_region_that_contains(stop - 1)
+            assert end is not None
+            region = self._find_mapped_region_that_contains(end - 1)
 
         if not region:
             err = IndexError(
-                "Region %s not mapped" % self._str_range(start, stop)
+                "Region %s not mapped" % self._str_range(begin, end)
             )
             err.mapped_region = None
             raise err
 
-        start = start or region[0]
-        stop = stop or (region[1] + 1)
+        begin = begin or region[0]
+        end = end or (region[1] + 1)
 
-        if not (region[0] <= start and stop <= region[1] + 1):
+        if not (region[0] <= begin and end <= region[1] + 1):
             err = IndexError(
                 "Memory region '%s' is partially mapped. Region mapped is %s."
-                % (self._str_range(start, stop), self._str_region(region))
+                % (self._str_range(begin, end), self._str_region(region))
             )
             err.mapped_region = region
             raise err
 
-        return (start, stop - 1, region[2])
+        return (begin, end - 1, region[2])
 
     def _size_of_region(self, region):
         return region[1] - region[0] + 1
@@ -345,8 +355,8 @@ class Memory:
             Traceback<...>
             ValueError: The read 6 bytes do not fit in the allocated 2 bytes
         '''
-        start, stop, elem_sz = self._unpack_index(ix)
-        region = self._find_mapped_subregion(start, stop)
+        begin, end, elem_sz = self._unpack_index(ix)
+        region = self._find_mapped_subregion(begin, end)
 
         mem_sz = self._size_of_region(region)
         b = ImmutableBytes(self._mu.mem_read(region[0], mem_sz))
@@ -398,6 +408,27 @@ class Memory:
             [0x0-0xfff] (sz 0x1000)
             [0x2000-0x3fff] (sz 0x2000)
 
+            The regions to be mapped must have begin and end addresses
+            multiple of 0x1000 (aligned to) otherwise you will get an error:
+
+            >>> m[0x8001:0x9000] = 0    # misaligned begin address
+            Traceback<...>
+            IndexError: Region [0x8001-0x9000) not mapped
+            The range [0x8001-0x9000) cannot be mapped because the begin address is not aligned to 0x1000.
+            >>> m[0x7fff:0x9000] = 0    # misaligned begin address
+            Traceback<...>
+            IndexError: Region [0x7fff-0x9000) not mapped
+            The range [0x7fff-0x9000) cannot be mapped because the begin address is not aligned to 0x1000.
+
+            >>> m[0x8000:0x9001] = 0    # misaligned end address
+            Traceback<...>
+            IndexError: Region [0x8000-0x9001) not mapped
+            The range [0x8000-0x9001) cannot be mapped because the end address is not aligned to 0x1000.
+            >>> m[0x8000:0x8fff] = 0    # misaligned end address
+            Traceback<...>
+            IndexError: Region [0x8000-0x8fff) not mapped
+            The range [0x8000-0x8fff) cannot be mapped because the end address is not aligned to 0x1000.
+
             If the region overlaps with a previous mapped memory, an error is
             raised:
 
@@ -406,7 +437,7 @@ class Memory:
             IndexError: Memory region '[0x1000-0x3000)' is partially mapped. Region mapped is [0x2000-0x3fff] (sz 0x2000).
             The range [0x1000-0x3000) cannot be mapped because it overlaps with a previous mapped region [0x2000-0x3fff] (sz 0x2000).
 
-            The start or the stop addresses can be omitted to set "from the
+            The begin or the end addresses can be omitted to set "from the
             begin" or "to the end" of the region.
 
             >>> m[0x2000:] = 2
@@ -418,7 +449,7 @@ class Memory:
             >>> m[0x2000:0x2005]
             [\x08\x08\x04\x04\x04]
 
-            When setting bytes the sizes must match except with the stop address
+            When setting bytes the sizes must match except with the end address
             is missing. In this case works like memcpy
 
             >>> m[0x2002:] = b'\x03\x03'
@@ -440,9 +471,9 @@ class Memory:
             >>> del m[0:]
         '''
 
-        start, stop, elem_sz = self._unpack_index(ix)
+        begin, end, elem_sz = self._unpack_index(ix)
         try:
-            region = self._find_mapped_subregion(start, stop)
+            region = self._find_mapped_subregion(begin, end)
         except IndexError as err:
             if not hasattr(err, 'mapped_region'):
                 raise
@@ -450,29 +481,41 @@ class Memory:
             partial_mapped = getattr(err, 'mapped_region')
 
             if partial_mapped is None:
-                if start is None or stop is None:
+                if begin is None or end is None:
                     msg = str(err) + (
                         "\nThe range %s cannot be mapped because one of its ends is not fixed."
-                        % self._str_range(start, stop)
+                        % self._str_range(begin, end)
+                    )
+                    raise IndexError(msg) from None
+                elif (begin & self.page_mask):
+                    msg = str(err) + (
+                        "\nThe range %s cannot be mapped because the begin address is not aligned to %s."
+                        % (self._str_range(begin, end), hex(self.page_size))
+                    )
+                    raise IndexError(msg) from None
+                elif (end & self.page_mask):
+                    msg = str(err) + (
+                        "\nThe range %s cannot be mapped because the end address is not aligned to %s."
+                        % (self._str_range(begin, end), hex(self.page_size))
                     )
                     raise IndexError(msg) from None
                 else:
-                    proto_region = (start, stop - 1, UC_PROT_ALL)
+                    proto_region = (begin, end - 1, UC_PROT_ALL)
                     print(
                         "Mapping memory region %s" %
                         (self._str_region(proto_region))
                     )
 
                     self._mu.mem_map(
-                        start, self._size_of_region(proto_region), UC_PROT_ALL
+                        begin, self._size_of_region(proto_region), UC_PROT_ALL
                     )
                     region = proto_region
             else:
                 msg = str(err) + (
                     "\nThe range %s cannot be mapped because it overlaps with a previous mapped region %s."
                     % (
-                        self._str_range(start, stop),
-                        self._str_region(partial_mapped)
+                        self._str_range(begin,
+                                        end), self._str_region(partial_mapped)
                     )
                 )
                 raise IndexError(msg) from None
@@ -490,7 +533,7 @@ class Memory:
                     data = data[:region[1] - addr + 1]
                 self._mu.mem_write(addr, data)
 
-        elif stop is None:
+        elif end is None:
             # memcpy
             self._mu.mem_write(region[0], val)
         else:
@@ -537,8 +580,8 @@ class Memory:
 
         '''
 
-        start, stop, elem_sz = self._unpack_index(ix)
-        region = self._find_mapped_subregion(start, stop)
+        begin, end, elem_sz = self._unpack_index(ix)
+        region = self._find_mapped_subregion(begin, end)
 
         mem_sz = self._size_of_region(region)
         try:

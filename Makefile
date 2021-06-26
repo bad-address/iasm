@@ -10,6 +10,7 @@ deps-dev: deps
 
 test: format-test
 	byexample -l python --ff  iasm/*.py
+	byexample -l shell,iasm --timeout 8  README.md
 
 
 ## Formatting

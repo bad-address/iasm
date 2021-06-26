@@ -54,6 +54,7 @@ def build_argparser():
         metavar='<sz>',
         dest='code_sz',
         required=False,
+        type=int,
         default=2 * 1024 * 1024,
         help='memory allocated for code.'
     )
@@ -63,6 +64,7 @@ def build_argparser():
         metavar='<pc>',
         dest='pc_addr',
         required=False,
+        type=int,
         default=0x1000000,
         help='starting program counter address.'
     )
@@ -111,6 +113,7 @@ def build_argparser():
         "--timeout",
         metavar='<secs>',
         dest='timeout',
+        type=float,
         required=False,
         default=5,
         help='timeout for parsing and executing each assembly instruction.'

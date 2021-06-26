@@ -156,7 +156,8 @@ class Shell:
         kargs = dict(
             key_bindings=kb,
             multiline=True,
-            prompt_continuation=_prompt_continuation
+            prompt_continuation=_prompt_continuation,
+            enable_suspend=True
         )
 
         if not no_history:

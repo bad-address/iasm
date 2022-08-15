@@ -230,6 +230,14 @@ class Register(
     def val(self, v):
         self.mu.reg_write(self.const, v)
 
+    def is_available(self):
+        ''' Return if the register can be readed without an error. '''
+        try:
+            _ = self.val
+            return True
+        except:
+            return False
+
     def repr_val(self):
         v = self.val
         if isinstance(v, int):
@@ -404,6 +412,9 @@ def get_registers(mu, arch_name, mode_name):
 
         if name == pc_name:
             pc = reg
+
+        if not reg.is_available():
+            continue
 
         regs.append(reg)
 

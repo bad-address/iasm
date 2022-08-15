@@ -82,7 +82,7 @@ def main():
                 th.join(args.timeout)
 
                 # keystone hang?
-                if not ret or th.isAlive():
+                if not ret or th.is_alive():
                     raise TimeoutError()
 
                 instrs, err = ret

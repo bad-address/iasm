@@ -175,16 +175,17 @@ class Register(
         `get_engines` already loads and creates all the registers for you
         and packs them in a list (returned by the function)
 
-        >>> regs[50]
+        >>> ix = regs.index(reg)
+        >>> regs[ix]
         eax = f
 
         While both have the same value and therefore they are equals,
         they are different Python objects
 
-        >>> regs[50] == reg
+        >>> regs[ix] == reg
         True
 
-        >>> regs[50] is reg
+        >>> regs[ix] is reg
         False
 
         A note about the representation of the register. They are
@@ -492,7 +493,7 @@ def get_engines(arch_name, mode_name):
         The third result is a ordered list of the registers
         for the given architecture:
 
-        >>> regs[50]
+        >>> regs[ix]
         eax = 0
 
         And the fourth is the program counter register:

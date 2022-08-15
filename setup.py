@@ -58,7 +58,7 @@ setup(
         'Programming Language :: Python :: 3.9',
     ],
 
-    python_requires='>=3.5',
+    python_requires='>=3.7',
     install_requires=required_deps,
 
     keywords='asm, assembler, assembly, x86, arm',

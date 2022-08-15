@@ -223,7 +223,7 @@ class Register(
             return self.mu.reg_read(self.const)
         except Exception as err:
             raise Exception(
-                f"Register {self.name} ({self.alias}) could not be read."
+                f"Register {self.name} ({self.alias}) could not be read under symbolic constant {self.const}."
             ) from err
 
     @val.setter

@@ -253,13 +253,14 @@ class Register(
     def __repr__(self):
         return "%s = %s" % (self.display_name(), self.repr_val())
 
-    def __hash__(self):
-        return hash((self.name, self.val))
-
     def __eq__(self, other):
         if not isinstance(other, Register):
             return False
-        return hash(self) == hash(other)
+
+        # compare first the name and only if they match compare
+        # their values (fetching the value is expensive so we relay
+        # on the short-circuit to not pay the cost on any __eq__ call
+        return self.name == other.name and self.val == other.val
 
 
 def _get_flag(reg, flag_descr, reg_sz):

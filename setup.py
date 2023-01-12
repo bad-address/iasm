@@ -63,7 +63,7 @@ setup(
 
     keywords='asm, assembler, assembly, x86, arm',
 
-    packages=['iasm'],
+    packages=find_packages(),
     data_files=[("", ["LICENSE"])],
     package_data={'iasm':["datasheets/*"]},
     entry_points={
